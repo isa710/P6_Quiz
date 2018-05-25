@@ -225,3 +225,64 @@ exports.check = (req, res, next) => {
         answer
     });
 };
+
+exports.randomplay = (req, res, next) => { //hacer que las preguntas aparezca que no se repitan y salgan aleatoriamente //score es la longitud del array que ya he respondido y el array se llama req.session.randomplay y ese es un array donde hay que meter un id de las preguntas que ya has respondido
+    req.session.resolved = req.session.resolved || [];
+
+    const Op = Sequelize.Op;
+    const cond = {'id': {[Op.notIn]: req.session.resolved}};
+
+    return models.quiz.count({where:cond})
+        .then(count=>{
+        if(!count){
+        let score=req.session.resolved.length;
+        req.session.resolved=[];
+        delete req.session.resolved;
+        res.render('quizzes/random_nomore',{
+            score:score
+        });
+    }
+
+    let ran =Math.floor(Math.random()*count);
+    return models.quiz.findAll({where:cond,offset:ran,limit:1})
+        .then(quizzes=>{
+        return quizzes[0];
+});
+
+})
+.then(quiz=>{
+        res.render('quizzes/random_play', {
+        quiz : quiz,
+        score :req.session.resolved.length
+    });
+})
+
+.catch(error => next(error));
+
+};
+
+
+exports.randomcheck = (req, res, next) => {
+    if(req.session.resolved === undefined){
+        req.session.resolved = [];
+    };
+
+    let score = req.session.resolved.length;
+    const answer = req.query.answer || "";
+    var result = true;
+    if(answer.toLowerCase().trim() === req.quiz.answer.toLowerCase().trim()){
+        if(req.session.resolved.indexOf(req.quiz.id)=== -1) {
+            result = true;
+            req.session.resolved.push(req.quiz.id);
+            score = req.session.resolved.length;
+        }
+    }else{
+        result = false;
+        delete req.session.resolved;
+    }
+    res.render('quizzes/random_result', {
+        result,
+        score,
+        answer
+    });
+};
